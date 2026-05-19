@@ -4,28 +4,25 @@
 const char* AP_SSID     = "ESP32-Light";
 const char* AP_PASSWORD = "12345678";
 
-// 光敏引脚
+// 引脚定义（完全不变）
 const int DO_PIN = 4;
 const int AO_PIN = 5;
-
-// 反射率传感器 TCRT5000 → 改为 GPIO6
 const int REFLECT_PIN = 6;
 
 WebServer server(80);
 
-// 滑动平均滤波
-#define FILTER_NUM 15
+// 滤波参数
+#define FILTER_NUM 8
 int buf[FILTER_NUM];
 int pos = 0;
 int smoothVal = 0;
 bool lightState = false;
 
-// 反射率滤波
 int refBuf[FILTER_NUM];
 int refPos = 0;
 int smoothRef = 0;
 
-// 滤波计算（光照）
+// 光照滤波
 int getSmoothData() {
   buf[pos++] = analogRead(AO_PIN);
   if(pos >= FILTER_NUM) pos = 0;
@@ -34,30 +31,28 @@ int getSmoothData() {
   return sum / FILTER_NUM;
 }
 
-// 滤波计算（反射）
+// 反射滤波
 int getSmoothReflect() {
   refBuf[refPos++] = analogRead(REFLECT_PIN);
   if(refPos >= FILTER_NUM) refPos = 0;
   long sum = 0;
   for(int i=0;i<FILTER_NUM;i++) sum += refBuf[i];
-  return sum / 15;
+  return sum / FILTER_NUM;
 }
 
-// ADC转勒克斯LUX
+// 计算勒克斯
 float getLux(int val) {
   if (val < 10) val = 10;
   return (4095.0 / val) * 4.2;
 }
 
-// JSON数据接口
+// 数据接口
 void getData() {
-  // 光照处理
   int correctVal = 4095 - smoothVal;
   int per = map(correctVal, 0, 4095, 0, 100);
   per = constrain(per, 0, 100);
   float lux = getLux(smoothVal);
 
-  // 反射率 正确反向映射
   int reflectValue = smoothRef;
   int reflectPercent = map(reflectValue, 4095, 1000, 0, 100);
   reflectPercent = constrain(reflectPercent, 0, 100);
@@ -72,78 +67,151 @@ void getData() {
   server.send(200, "application/json", json);
 }
 
-// 网页主页 三卡片布局
+// 主页面（导航100%可点击版）
 void webPage() {
-  String html = R"HTML(
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>光照综合监测</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,sans-serif}
-  body{background:#121212;color:#fff;padding:20px;min-height:100vh}
-  .container{max-width:420px;margin:0 auto;gap:20px;display:flex;flex-direction:column}
-  .card{background:#1e1e1e;border-radius:18px;padding:25px}
-  .card-title{font-size:18px;color:#90caf9;margin-bottom:18px;font-weight:600;border-left:4px solid #2196f3;padding-left:10px}
+  String html = "";
   
-  .lux-num{font-size:52px;color:#ffd700;text-align:center;margin:15px 0}
-  .adc-num{font-size:42px;color:#4cd964;text-align:center;margin:15px 0}
-  .ref-num{font-size:42px;color:#ff69b4;text-align:center;margin:15px 0}
+  // 头部
+  html += "<!DOCTYPE html><html lang='zh-CN'><head>";
+  html += "<meta charset='utf-8'>";
+  html += "<meta name='viewport' content='width=device-width,initial-scale=1.0,user-scalable=no'>";
+  html += "<title>光照综合监测</title>";
   
-  .desc{text-align:center;color:#aaa;font-size:14px}
-  .bar-box{width:100%;height:18px;background:#333;border-radius:9px;overflow:hidden;margin:10px 0}
-  .bar{height:100%;background:#4cd964;width:0%;transition:0.4s ease}
-  .status-tip{margin-top:12px;text-align:center;font-size:16px}
-</style>
-</head>
-<body>
-<div class="container">
-  <div class="card">
-    <div class="card-title">一、标准光照亮度(LUX)</div>
-    <div class="lux-num" id="luxShow">0.0 lx</div>
-    <div class="desc">国际标准勒克斯光照强度值</div>
-  </div>
+  // CSS样式
+  html += "<style>";
+  html += "*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,sans-serif}";
+  html += "body{background:#121212;color:#fff;padding-bottom:85px;min-height:100vh}";
+  html += ".main{max-width:430px;margin:0 auto;padding:15px}";
+  html += ".card{background:#1e1e1e;border-radius:20px;padding:26px;margin-bottom:25px}";
+  html += ".card-title{font-size:18px;color:#90caf9;font-weight:600;border-left:4px solid #2196f3;padding-left:12px;margin-bottom:20px}";
+  html += ".lux-num{font-size:54px;color:#ffd700;text-align:center;margin:16px 0}";
+  html += ".light-num{font-size:44px;color:#4cd964;text-align:center;margin:16px 0}";
+  html += ".ref-num{font-size:44px;color:#ff69b4;text-align:center;margin:16px 0}";
+  html += ".desc{text-align:center;color:#aaa;font-size:14px}";
+  html += ".bar-box{width:100%;height:18px;background:#333;border-radius:9px;overflow:hidden;margin:12px 0}";
+  html += ".bar{height:100%;width:0%;background:#4cd964;transition:0.3s}";
+  html += ".state{text-align:center;font-size:16px;margin-top:10px}";
+  html += ".page{display:none}.page.active{display:block}";
+  html += ".wave-item{margin-bottom:22px}";
+  html += ".wave-name{font-size:15px;color:#ccc;margin-bottom:10px}";
+  html += ".wave-canvas{width:100%;height:120px;background:#1a1a1a;border-radius:12px;display:block}";
+  html += ".set-text{line-height:1.9;color:#ccc;font-size:15px}";
+  html += ".nav{position:fixed;bottom:0;left:0;right:0;height:72px;background:rgba(28,28,28,0.96);backdrop-filter:blur(12px);border-top-left-radius:22px;border-top-right-radius:22px;max-width:430px;margin:0 auto;display:flex}";
+  html += ".nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#888;font-size:12px;cursor:pointer}";
+  html += ".nav-item.active{color:#2196f3}";
+  html += ".nav-icon{font-size:24px;margin-bottom:4px}";
+  html += "</style></head><body>";
 
-  <div class="card">
-    <div class="card-title">二、环境相对光强</div>
-    <div class="adc-num" id="adcShow">0 / 4095</div>
-    <div class="bar-box"><div class="bar" id="pctBar"></div></div>
-    <div class="status-tip" id="stateTip">--</div>
-  </div>
+  // 页面内容
+  html += "<div class='main'>";
+  
+  // 数据页
+  html += "<div class='page active' id='p1'>";
+  html += "<div class='card'><div class='card-title'>一、标准光照亮度(LUX)</div><div class='lux-num' id='lux'>0.0 lx</div><div class='desc'>国际标准勒克斯光照强度值</div></div>";
+  html += "<div class='card'><div class='card-title'>二、环境相对光强</div><div class='light-num' id='val'>0 / 4095</div><div class='bar-box'><div class='bar' id='pct'></div></div><div class='state' id='tip'>--</div></div>";
+  html += "<div class='card'><div class='card-title'>三、物体红外反射率</div><div class='ref-num' id='ref'>0 %</div><div class='desc'>数值越高 表面反射能力越强</div></div>";
+  html += "</div>";
 
-  <div class="card">
-    <div class="card-title">三、物体红外反射率</div>
-    <div class="ref-num" id="refShow">0 %</div>
-    <div class="desc">数值越高 → 反射越强</div>
-  </div>
-</div>
+  // 记录页
+  html += "<div class='page' id='p2'>";
+  html += "<div class='card'><div class='card-title'>实时数据波形记录</div>";
+  html += "<div class='wave-item'><div class='wave-name'>光照亮度波形</div><canvas class='wave-canvas' id='c1'></canvas></div>";
+  html += "<div class='wave-item'><div class='wave-name'>相对光强波形</div><canvas class='wave-canvas' id='c2'></canvas></div>";
+  html += "<div class='wave-item'><div class='wave-name'>反射率波形</div><canvas class='wave-canvas' id='c3'></canvas></div>";
+  html += "</div></div>";
 
-<script>
-function refreshData(){
-  fetch("/d")
-  .then(res=>res.json())
-  .then(d=>{
-    document.getElementById("luxShow").innerText = d.lux + " lx";
-    document.getElementById("adcShow").innerText = d.val + " / 4095";
-    document.getElementById("pctBar").style.width = d.pct + "%";
-    document.getElementById("refShow").innerText = d.reflect + " %";
-    
-    if(d.sta === 1){
-      document.getElementById("stateTip").innerText = "当前环境光线偏弱";
-      document.getElementById("stateTip").style.color = "#ff9800";
-    }else{
-      document.getElementById("stateTip").innerText = "当前环境光线充足";
-      document.getElementById("stateTip").style.color = "#4cd964";
-    }
-  })
-}
-setInterval(refreshData, 400);
-</script>
-</body>
-</html>
-  )HTML";
+  // 设置页
+  html += "<div class='page' id='p3'>";
+  html += "<div class='card'><div class='card-title'>系统功能设置</div><div class='set-text'>";
+  html += "1. 本设备支持光照强度、相对光强、红外反射率实时采集监测<br><br>";
+  html += "2. 波形页面自动记录数据变化曲线，直观查看数值波动趋势<br><br>";
+  html += "3. 可后期拓展：色温检测、显色指数、薄膜透光率检测模块<br><br>";
+  html += "4. 设备默认采样频率400ms，内置8级数据滤波平滑降噪<br><br>";
+  html += "5. 开发板供电不足时，可使用闲置GPIO引脚输出3.3V拓展供电";
+  html += "</div></div></div>";
+  html += "</div>";
+
+  // 底部导航（去掉内联onclick，改用JS绑定事件）
+  html += "<div class='nav'>";
+  html += "<div class='nav-item active'><div class='nav-icon'>📊</div><div>数据</div></div>";
+  html += "<div class='nav-item'><div class='nav-icon'>📝</div><div>记录</div></div>";
+  html += "<div class='nav-item'><div class='nav-icon'>⚙️</div><div>设置</div></div>";
+  html += "</div>";
+
+  // JavaScript逻辑（事件监听绑定，彻底解决点击问题）
+  html += "<script>";
+  html += "document.addEventListener('DOMContentLoaded', function() {";
+  html += "const pages=document.querySelectorAll('.page');";
+  html += "const navs=document.querySelectorAll('.nav-item');";
+  
+  // 页面切换函数（内部函数，安全可靠）
+  html += "function switchPage(index) {";
+  html += "pages.forEach(p=>p.classList.remove('active'));";
+  html += "navs.forEach(n=>n.classList.remove('active'));";
+  html += "pages[index].classList.add('active');";
+  html += "navs[index].classList.add('active');";
+  html += "}";
+  
+  // 给每个导航按钮绑定点击事件
+  html += "navs.forEach((item, index) => {";
+  html += "item.addEventListener('click', () => switchPage(index));";
+  html += "});";
+  
+  // 波形初始化
+  html += "const maxPoints=60;";
+  html += "let dataLux=[], dataLight=[], dataRef=[];";
+  html += "let c1=document.getElementById('c1'), c2=document.getElementById('c2'), c3=document.getElementById('c3');";
+  
+  // 自动适配canvas尺寸
+  html += "function resizeCanvas() {";
+  html += "c1.width=c1.offsetWidth; c1.height=c1.offsetHeight;";
+  html += "c2.width=c2.offsetWidth; c2.height=c2.offsetHeight;";
+  html += "c3.width=c3.offsetWidth; c3.height=c3.offsetHeight;";
+  html += "}";
+  html += "resizeCanvas();";
+  html += "window.addEventListener('resize', resizeCanvas);";
+  
+  html += "let ctx1=c1.getContext('2d'), ctx2=c2.getContext('2d'), ctx3=c3.getContext('2d');";
+  
+  // 绘制波形函数
+  html += "function drawWave(ctx, arr, color) {";
+  html += "ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);";
+  html += "ctx.beginPath();";
+  html += "ctx.strokeStyle=color;";
+  html += "ctx.lineWidth=2.5;";
+  html += "let step=ctx.canvas.width/maxPoints;";
+  html += "arr.forEach((val,i)=>{let y=ctx.canvas.height-(val/100*ctx.canvas.height);i==0?ctx.moveTo(i*step,y):ctx.lineTo(i*step,y);});";
+  html += "ctx.stroke();";
+  html += "}";
+  
+  html += "function limit(v, min, max) {return v<min?min:(v>max?max:v);}";
+  
+  // 数据更新函数
+  html += "function updateData() {";
+  html += "fetch('/d').then(r=>r.json()).then(res=>{";
+  html += "document.getElementById('lux').innerText=res.lux+' lx';";
+  html += "document.getElementById('val').innerText=res.val+' / 4095';";
+  html += "document.getElementById('pct').style.width=res.pct+'%';";
+  html += "document.getElementById('ref').innerText=res.reflect+' %';";
+  html += "if(res.sta==1){document.getElementById('tip').innerText='当前环境光线偏弱';document.getElementById('tip').style.color='#ff9800';}";
+  html += "else{document.getElementById('tip').innerText='当前环境光线充足';document.getElementById('tip').style.color='#4cd964';}";
+  html += "let luxRatio=limit(res.lux/1200*100,0,100);";
+  html += "dataLux.push(luxRatio); dataLight.push(res.pct); dataRef.push(res.reflect);";
+  html += "if(dataLux.length>maxPoints)dataLux.shift();";
+  html += "if(dataLight.length>maxPoints)dataLight.shift();";
+  html += "if(dataRef.length>maxPoints)dataRef.shift();";
+  html += "drawWave(ctx1,dataLux,'#ffd700');";
+  html += "drawWave(ctx2,dataLight,'#4cd964');";
+  html += "drawWave(ctx3,dataRef,'#ff69b4');";
+  html += "});";
+  html += "}";
+  
+  // 启动数据更新
+  html += "setInterval(updateData, 400);";
+  html += "});"; // 结束DOMContentLoaded
+  html += "</script></body></html>";
+
+  // 一次性发送完整页面
   server.send(200, "text/html", html);
 }
 
@@ -157,10 +225,21 @@ void setup() {
     refBuf[i] = 0;
   }
 
+  // WiFi初始化
   WiFi.softAP(AP_SSID, AP_PASSWORD);
+  IPAddress ip = WiFi.softAPIP();
+  Serial.println("");
+  Serial.println("WiFi启动成功！");
+  Serial.print("SSID: ");
+  Serial.println(AP_SSID);
+  Serial.print("访问地址: ");
+  Serial.println(ip);
+
+  // 注册路由
   server.on("/", webPage);
   server.on("/d", getData);
   server.begin();
+  Serial.println("Web服务器已启动");
 }
 
 void loop() {
