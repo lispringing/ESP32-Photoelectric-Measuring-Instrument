@@ -100,6 +100,10 @@ void webPage() {
   html += ".nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#888;font-size:12px;cursor:pointer}";
   html += ".nav-item.active{color:#2196f3}";
   html += ".nav-icon{font-size:24px;margin-bottom:4px}";
+  // 采集按钮样式
+  html += ".record-btn{width:100%;height:50px;border-radius:12px;border:none;font-size:16px;font-weight:500;margin-bottom:20px;cursor:pointer}";
+  html += ".btn-start{background:#2196f3;color:white}";
+  html += ".btn-stop{background:#f44336;color:white}";
   html += "</style></head><body>";
 
   // 页面内容
@@ -112,9 +116,12 @@ void webPage() {
   html += "<div class='card'><div class='card-title'>三、物体红外反射率</div><div class='ref-num' id='ref'>0 %</div><div class='desc'>数值越高 表面反射能力越强</div></div>";
   html += "</div>";
 
-  // 记录页
+  // 记录页（加了采集按钮）
   html += "<div class='page' id='p2'>";
-  html += "<div class='card'><div class='card-title'>实时数据波形记录</div>";
+  html += "<div class='card'>";
+  html += "<div class='card-title'>实时数据波形记录</div>";
+  // 波形采集按钮
+  html += "<button class='record-btn btn-start' id='recordBtn'>点击开始采集波形</button>";
   html += "<div class='wave-item'><div class='wave-name'>光照亮度波形</div><canvas class='wave-canvas' id='c1'></canvas></div>";
   html += "<div class='wave-item'><div class='wave-name'>相对光强波形</div><canvas class='wave-canvas' id='c2'></canvas></div>";
   html += "<div class='wave-item'><div class='wave-name'>反射率波形</div><canvas class='wave-canvas' id='c3'></canvas></div>";
@@ -131,20 +138,21 @@ void webPage() {
   html += "</div></div></div>";
   html += "</div>";
 
-  // 底部导航（去掉内联onclick，改用JS绑定事件）
+  // 底部导航
   html += "<div class='nav'>";
   html += "<div class='nav-item active'><div class='nav-icon'>📊</div><div>数据</div></div>";
   html += "<div class='nav-item'><div class='nav-icon'>📝</div><div>记录</div></div>";
   html += "<div class='nav-item'><div class='nav-icon'>⚙️</div><div>设置</div></div>";
   html += "</div>";
 
-  // JavaScript逻辑（事件监听绑定，彻底解决点击问题）
+  // JavaScript逻辑
   html += "<script>";
   html += "document.addEventListener('DOMContentLoaded', function() {";
   html += "const pages=document.querySelectorAll('.page');";
   html += "const navs=document.querySelectorAll('.nav-item');";
+  html += "const recordBtn=document.getElementById('recordBtn');";
   
-  // 页面切换函数（内部函数，安全可靠）
+  // 页面切换
   html += "function switchPage(index) {";
   html += "pages.forEach(p=>p.classList.remove('active'));";
   html += "navs.forEach(n=>n.classList.remove('active'));";
@@ -152,17 +160,17 @@ void webPage() {
   html += "navs[index].classList.add('active');";
   html += "}";
   
-  // 给每个导航按钮绑定点击事件
   html += "navs.forEach((item, index) => {";
   html += "item.addEventListener('click', () => switchPage(index));";
   html += "});";
   
-  // 波形初始化
+  // 波形变量
   html += "const maxPoints=60;";
   html += "let dataLux=[], dataLight=[], dataRef=[];";
+  html += "let isRecording=false;";
+  html += "let recordTimer=null;";
   html += "let c1=document.getElementById('c1'), c2=document.getElementById('c2'), c3=document.getElementById('c3');";
   
-  // 自动适配canvas尺寸
   html += "function resizeCanvas() {";
   html += "c1.width=c1.offsetWidth; c1.height=c1.offsetHeight;";
   html += "c2.width=c2.offsetWidth; c2.height=c2.offsetHeight;";
@@ -173,9 +181,10 @@ void webPage() {
   
   html += "let ctx1=c1.getContext('2d'), ctx2=c2.getContext('2d'), ctx3=c3.getContext('2d');";
   
-  // 绘制波形函数
+  // 绘制波形
   html += "function drawWave(ctx, arr, color) {";
   html += "ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);";
+  html += "if(arr.length===0)return;";
   html += "ctx.beginPath();";
   html += "ctx.strokeStyle=color;";
   html += "ctx.lineWidth=2.5;";
@@ -186,7 +195,7 @@ void webPage() {
   
   html += "function limit(v, min, max) {return v<min?min:(v>max?max:v);}";
   
-  // 数据更新函数
+  // 数据更新（只在采集时运行）
   html += "function updateData() {";
   html += "fetch('/d').then(r=>r.json()).then(res=>{";
   html += "document.getElementById('lux').innerText=res.lux+' lx';";
@@ -195,6 +204,8 @@ void webPage() {
   html += "document.getElementById('ref').innerText=res.reflect+' %';";
   html += "if(res.sta==1){document.getElementById('tip').innerText='当前环境光线偏弱';document.getElementById('tip').style.color='#ff9800';}";
   html += "else{document.getElementById('tip').innerText='当前环境光线充足';document.getElementById('tip').style.color='#4cd964';}";
+  // 只有开启采集才保存波形数据
+  html += "if(isRecording){";
   html += "let luxRatio=limit(res.lux/1200*100,0,100);";
   html += "dataLux.push(luxRatio); dataLight.push(res.pct); dataRef.push(res.reflect);";
   html += "if(dataLux.length>maxPoints)dataLux.shift();";
@@ -203,15 +214,31 @@ void webPage() {
   html += "drawWave(ctx1,dataLux,'#ffd700');";
   html += "drawWave(ctx2,dataLight,'#4cd964');";
   html += "drawWave(ctx3,dataRef,'#ff69b4');";
+  html += "}";
   html += "});";
   html += "}";
   
-  // 启动数据更新
+  // 按钮切换采集状态
+  html += "recordBtn.addEventListener('click',function(){";
+  html += "isRecording=!isRecording;";
+  html += "if(isRecording){";
+  html += "recordBtn.innerText='停止采集并清空波形';";
+  html += "recordBtn.className='record-btn btn-stop';";
+  html += "}else{";
+  html += "dataLux=[];dataLight=[];dataRef=[];";
+  html += "drawWave(ctx1,dataLux,'#ffd700');";
+  html += "drawWave(ctx2,dataLight,'#4cd964');";
+  html += "drawWave(ctx3,dataRef,'#ff69b4');";
+  html += "recordBtn.innerText='点击开始采集波形';";
+  html += "recordBtn.className='record-btn btn-start';";
+  html += "}";
+  html += "});";
+  
+  // 基础数据始终刷新，波形只在采集时记录
   html += "setInterval(updateData, 400);";
-  html += "});"; // 结束DOMContentLoaded
+  html += "});";
   html += "</script></body></html>";
 
-  // 一次性发送完整页面
   server.send(200, "text/html", html);
 }
 
@@ -225,7 +252,6 @@ void setup() {
     refBuf[i] = 0;
   }
 
-  // WiFi初始化
   WiFi.softAP(AP_SSID, AP_PASSWORD);
   IPAddress ip = WiFi.softAPIP();
   Serial.println("");
@@ -235,7 +261,6 @@ void setup() {
   Serial.print("访问地址: ");
   Serial.println(ip);
 
-  // 注册路由
   server.on("/", webPage);
   server.on("/d", getData);
   server.begin();
