@@ -104,6 +104,13 @@ void webPage() {
   html += ".record-btn{width:100%;height:50px;border-radius:12px;border:none;font-size:16px;font-weight:500;margin-bottom:20px;cursor:pointer}";
   html += ".btn-start{background:#2196f3;color:white}";
   html += ".btn-stop{background:#f44336;color:white}";
+  html += ".loading-mask{position:fixed;inset:0;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}";
+  html += ".loading-box{width:100%;max-width:360px;background:#1f1f1f;border-radius:16px;padding:22px;text-align:center;box-shadow:0 10px 35px rgba(0,0,0,.45)}";
+  html += ".loading-title{font-size:20px;color:#90caf9;font-weight:700;margin-bottom:12px}";
+  html += ".loading-status{font-size:15px;color:#ddd;margin-bottom:14px;min-height:22px}";
+  html += ".loading-progress{width:100%;height:10px;background:#333;border-radius:99px;overflow:hidden}";
+  html += ".loading-bar{height:100%;width:0%;background:linear-gradient(90deg,#2196f3,#4cd964);transition:width .1s linear}";
+  html += ".loading-time{margin-top:10px;color:#9e9e9e;font-size:13px}";
   html += "</style></head><body>";
 
   // 页面内容
@@ -146,11 +153,16 @@ void webPage() {
   html += "</div>";
 
   // JavaScript逻辑
+  html += "<div class='loading-mask' id='loadingMask'><div class='loading-box'><div class='loading-title'>\u6A21\u5757\u542F\u52A8\u4E2D</div><div class='loading-status' id='loadingStatus'>\u6B63\u5728\u521D\u59CB\u5316\u5149\u7167\u4F20\u611F\u5668...</div><div class='loading-progress'><div class='loading-bar' id='loadingBar'></div></div><div class='loading-time' id='loadingTime'>0%</div></div></div>";
   html += "<script>";
   html += "document.addEventListener('DOMContentLoaded', function() {";
   html += "const pages=document.querySelectorAll('.page');";
   html += "const navs=document.querySelectorAll('.nav-item');";
   html += "const recordBtn=document.getElementById('recordBtn');";
+  html += "const loadingMask=document.getElementById('loadingMask');";
+  html += "const loadingBar=document.getElementById('loadingBar');";
+  html += "const loadingStatus=document.getElementById('loadingStatus');";
+  html += "const loadingTime=document.getElementById('loadingTime');";
   
   // 页面切换
   html += "function switchPage(index) {";
@@ -168,7 +180,8 @@ void webPage() {
   html += "const maxPoints=60;";
   html += "let dataLux=[], dataLight=[], dataRef=[];";
   html += "let isRecording=false;";
-  html += "let recordTimer=null;";
+  html += "let isBootLoading=false;";
+  html += "let loadingTimer=null;";
   html += "let c1=document.getElementById('c1'), c2=document.getElementById('c2'), c3=document.getElementById('c3');";
   
   html += "function resizeCanvas() {";
@@ -194,10 +207,38 @@ void webPage() {
   html += "}";
   
   html += "function limit(v, min, max) {return v<min?min:(v>max?max:v);}";
+  html += "function setRecordButton(startMode){recordBtn.className='record-btn '+(startMode?'btn-start':'btn-stop');recordBtn.innerText=startMode?'\u70B9\u51FB\u5F00\u59CB\u91C7\u96C6\u6CE2\u5F62':'\u505C\u6B62\u91C7\u96C6\u5E76\u6E05\u7A7A\u6CE2\u5F62';}";
+  html += "function clearWaveData(){dataLux=[];dataLight=[];dataRef=[];drawWave(ctx1,dataLux,'#ffd700');drawWave(ctx2,dataLight,'#4cd964');drawWave(ctx3,dataRef,'#ff69b4');}";
+  html += "function showBootLoading(){";
+  html += "isBootLoading=true;";
+  html += "loadingMask.style.display='flex';";
+  html += "loadingBar.style.width='0%';";
+  html += "loadingTime.innerText='0%';";
+  html += "loadingStatus.innerText='\u6B63\u5728\u521D\u59CB\u5316\u5149\u7167\u4F20\u611F\u5668...';";
+  html += "const statusList=['\u6B63\u5728\u521D\u59CB\u5316\u5149\u7167\u4F20\u611F\u5668...','\u6B63\u5728\u542F\u52A8\u76F8\u5BF9\u5149\u5F3A\u6A21\u5757...','\u6B63\u5728\u542F\u52A8\u53CD\u5C04\u7387\u6A21\u5757...','\u6B63\u5728\u542F\u52A8\u6570\u636E\u8F93\u51FA\u6A21\u5757...'];";
+  html += "const total=5000;";
+  html += "const start=Date.now();";
+  html += "if(loadingTimer){clearInterval(loadingTimer);}";
+  html += "loadingTimer=setInterval(function(){";
+  html += "let elapsed=Date.now()-start;";
+  html += "let progress=Math.min(100,Math.floor(elapsed/total*100));";
+  html += "loadingBar.style.width=progress+'%';";
+  html += "loadingTime.innerText=progress+'%';";
+  html += "let idx=Math.min(statusList.length-1,Math.floor(progress/25));";
+  html += "loadingStatus.innerText=statusList[idx];";
+  html += "if(elapsed>=total){";
+  html += "clearInterval(loadingTimer);";
+  html += "loadingTimer=null;";
+  html += "isBootLoading=false;";
+  html += "loadingMask.style.display='none';";
+  html += "}";
+  html += "},100);";
+  html += "}";
   
   // 数据更新（只在采集时运行）
   html += "function updateData() {";
   html += "fetch('/d').then(r=>r.json()).then(res=>{";
+  html += "if(isBootLoading){document.getElementById('tip').innerText='\u6A21\u5757\u542F\u52A8\u4E2D...';document.getElementById('tip').style.color='#90caf9';return;}";
   html += "document.getElementById('lux').innerText=res.lux+' lx';";
   html += "document.getElementById('val').innerText=res.val+' / 4095';";
   html += "document.getElementById('pct').style.width=res.pct+'%';";
@@ -220,17 +261,17 @@ void webPage() {
   
   // 按钮切换采集状态
   html += "recordBtn.addEventListener('click',function(){";
-  html += "isRecording=!isRecording;";
-  html += "if(isRecording){";
-  html += "recordBtn.innerText='停止采集并清空波形';";
-  html += "recordBtn.className='record-btn btn-stop';";
+  html += "if(!isRecording){";
+  html += "isRecording=true;";
+  html += "setRecordButton(false);";
+  html += "showBootLoading();";
   html += "}else{";
-  html += "dataLux=[];dataLight=[];dataRef=[];";
-  html += "drawWave(ctx1,dataLux,'#ffd700');";
-  html += "drawWave(ctx2,dataLight,'#4cd964');";
-  html += "drawWave(ctx3,dataRef,'#ff69b4');";
-  html += "recordBtn.innerText='点击开始采集波形';";
-  html += "recordBtn.className='record-btn btn-start';";
+  html += "isRecording=false;";
+  html += "isBootLoading=false;";
+  html += "if(loadingTimer){clearInterval(loadingTimer);loadingTimer=null;}";
+  html += "loadingMask.style.display='none';";
+  html += "clearWaveData();";
+  html += "setRecordButton(true);";
   html += "}";
   html += "});";
   
