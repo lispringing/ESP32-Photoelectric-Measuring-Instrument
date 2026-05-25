@@ -11,8 +11,8 @@
 | 乐鑫ESP32-S3开发板 | 33元 |
 | 黑色外壳 | 3.8元 |
 | 红外避障传感器模块 | 7元 |
-| 4针光伏传奇设计 | 7元 |
-| 零件1 |  |
+| 4针光伏传感器模块 | 7元 |
+| 总计 |  |
 
 ## 快速开始
 
@@ -22,7 +22,7 @@ https://github.com/lispringing/ESP32-Photoelectric-Measuring-Instrument
 ```
 
 ## 引脚连接方式
-
+![截图](/img/main.png)
 
 
 
