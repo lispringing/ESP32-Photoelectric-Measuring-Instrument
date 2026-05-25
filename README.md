@@ -9,4 +9,22 @@
 | 元件 | 价格 |
 | ----- | ----- |
 | 乐鑫ESP32-S3开发板 | 33元 |
-|  | 单元格4 |
+| 零件1 |  |
+| 零件1 |  |
+| 零件1 |  |
+| 零件1 |  |
+
+## 快速开始
+
+克隆本仓库，用Arduino打开esp32文件夹下的eps32.ino文件，烧录
+```
+https://github.com/lispringing/ESP32-Photoelectric-Measuring-Instrument
+```
+
+## 引脚连接方式
+
+
+
+
+
+
