@@ -1,0 +1,23 @@
+报告配图来源（访问日期：2026-07-18）
+
+1. ESP32-S3 开发板资料图
+   来源：Espressif ESP-IDF Programming Guide, Get Started
+   页面：https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/index.html
+   图片：https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/_images/what-you-need.png
+
+2. BH1750 环境光传感器模块资料图
+   来源：Adafruit Learning System, Adafruit BH1750 Ambient Light Sensor
+   页面：https://learn.adafruit.com/adafruit-bh1750-ambient-light-sensor
+   图片：https://cdn-learn.adafruit.com/guides/images/000/003/039/medium800/4681_top_ORIG_2020_07_guide.png
+
+3. TCS34725 颜色传感器模块资料图
+   来源：Adafruit Learning System, Adafruit Color Sensors
+   页面：https://learn.adafruit.com/adafruit-color-sensors
+   图片：https://cdn-learn.adafruit.com/guides/images/000/000/287/medium800/1334orange_LRG.jpg
+
+4. Sharp GP2Y0A21YK0F 红外测距传感器资料图
+   来源：Pololu, Sharp GP2Y0A21YK0F Analog Distance Sensor
+   页面：https://www.pololu.com/product/136
+   图片：https://a.pololu-files.com/picture/0J149.1200x627.jpg
+
+说明：上述图片均作为器件选型资料图使用，不代表参赛团队实物照片。转载与公开发布时，请依据来源网站的授权条款核验使用范围。
